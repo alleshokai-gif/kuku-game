@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>九九クイズ</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    .card { border: 2px solid #222; border-radius: 18px; padding: 24px; }
+    .q { font-size: 52px; font-weight: 800; margin: 0 0 18px; }
+    .sub { font-size: 18px; opacity: .8; margin: 0 0 18px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    button {
+      font-size: 34px; padding: 18px 14px; border-radius: 14px;
+      border: 2px solid #222; background: #fff;
+    }
+    button:active { transform: scale(0.99); }
+    .row { display: flex; gap: 12px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
+    .pill { border: 2px solid #222; border-radius: 999px; padding: 8px 14px; font-size: 18px; }
+    .msg { font-size: 22px; font-weight: 700; min-height: 28px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <p class="sub">タップで答えてな（全10問）</p>
+      <h1 class="q" id="q">-- × -- = ?</h1>
+
+      <div class="grid" id="choices"></div>
+
+      <div class="row">
+        <div class="pill">問題: <span id="n">1</span>/10</div>
+        <div class="pill">正解: <span id="ok">0</span></div>
+        <div class="pill">まちがい: <span id="ng">0</span></div>
+        <div class="msg" id="msg"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const elQ = document.getElementById("q");
+  const elChoices = document.getElementById("choices");
+  const elN = document.getElementById("n");
+  const elOk = document.getElementById("ok");
+  const elNg = document.getElementById("ng");
+  const elMsg = document.getElementById("msg");
+
+  let a=1,b=1, ans=1;
+  let cur = 1, ok = 0, ng = 0;
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function newQuestion() {
+    elMsg.textContent = "";
+    a = randInt(1, 9);
+    b = randInt(1, 9);
+    ans = a * b;
+
+    elQ.textContent = `${a} × ${b} = ?`;
+    elN.textContent = cur;
+
+    // 4択を作る（正解 + まちがい3つ）
+    const set = new Set([ans]);
+    while (set.size < 4) {
+      // 近い値を混ぜると“それっぽい”選択肢になる
+      const delta = randInt(-10, 10);
+      const v = Math.max(1, ans + delta);
+      set.add(v);
+    }
+    const choices = shuffle([...set]);
+
+    elChoices.innerHTML = "";
+    for (const c of choices) {
+      const btn = document.createElement("button");
+      btn.textContent = c;
+      btn.onclick = () => pick(c);
+      elChoices.appendChild(btn);
+    }
+  }
+
+  function pick(x) {
+    if (x === ans) {
+      ok++;
+      elOk.textContent = ok;
+      elMsg.textContent = "⭕ せいかい！";
+    } else {
+      ng++;
+      elNg.textContent = ng;
+      elMsg.textContent = `❌ ちがうで！ こたえは ${ans}`;
+    }
+
+    // 次へ（少し待ってから）
+    setTimeout(() => {
+      cur++;
+      if (cur > 10) {
+        end();
+      } else {
+        newQuestion();
+      }
+    }, 900);
+  }
+
+  function end() {
+    elChoices.innerHTML = "";
+    elQ.textContent = "おしまい！";
+    elMsg.textContent = `スコア：正解 ${ok} / 10`;
+    const btn = document.createElement("button");
+    btn.textContent = "もう1回やる";
+    btn.onclick = () => { cur=1; ok=0; ng=0; elOk.textContent=0; elNg.textContent=0; newQuestion(); };
+    elChoices.appendChild(btn);
+  }
+
+  newQuestion();
+</script>
+</body>
+</html>
