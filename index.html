@@ -86,7 +86,7 @@
 
   // ピッ（ボタン音）
   function sfxClick() {
-    sfxTone(880, 35, "square", 0.06);
+  sfxTone(900, 18, "square", 0.03); // ms短く、vol小さく
   }
 
   // ポーン（正解）
@@ -145,12 +145,6 @@
       const btn = document.createElement("button");
       btn.textContent = c;
 
-      // ✅ メニュ/ボタン音（押した瞬間）
-      btn.addEventListener("pointerdown", () => {
-        sfxUnlock();
-        sfxClick();
-      });
-
       btn.onclick = () => pick(c);
       elChoices.appendChild(btn);
     }
@@ -165,13 +159,13 @@
       ok++;
       elOk.textContent = ok;
       elMsg.textContent = "⭕ せいかい！";
-      sfxCorrect();
+      setTimeout(sfxCorrect, 60);
       if (navigator.vibrate) navigator.vibrate(30);
     } else {
       ng++;
       elNg.textContent = ng;
       elMsg.textContent = `❌ ちがうで！ こたえは ${ans}`;
-      sfxWrong();
+      setTimeout(sfxWrong, 60);
       if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
     }
 
