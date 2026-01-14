@@ -39,6 +39,7 @@
   </div>
 
 <script>
+  // ===== DOM =====
   const elQ = document.getElementById("q");
   const elChoices = document.getElementById("choices");
   const elN = document.getElementById("n");
@@ -46,8 +47,67 @@
   const elNg = document.getElementById("ng");
   const elMsg = document.getElementById("msg");
 
-  let a=1,b=1, ans=1;
+  // ===== SFX (Web Audio) =====
+  let _ac = null;
+
+  function sfxUnlock() {
+    if (_ac) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    _ac = new AC();
+
+    // unlock用の超小音（端末によって必要）
+    const o = _ac.createOscillator();
+    const g = _ac.createGain();
+    g.gain.value = 0.0001;
+    o.connect(g).connect(_ac.destination);
+    o.start();
+    o.stop(_ac.currentTime + 0.02);
+  }
+
+  function sfxTone(freq = 440, ms = 80, type = "sine", vol = 0.12) {
+    if (!_ac) return;
+    const t0 = _ac.currentTime;
+    const o = _ac.createOscillator();
+    const g = _ac.createGain();
+
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+
+    // クリック音防止：アタック→減衰
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + ms / 1000);
+
+    o.connect(g).connect(_ac.destination);
+    o.start(t0);
+    o.stop(t0 + ms / 1000 + 0.02);
+  }
+
+  // ピッ（ボタン音）
+  function sfxClick() {
+    sfxTone(880, 35, "square", 0.06);
+  }
+
+  // ポーン（正解）
+  function sfxCorrect() {
+    sfxTone(784, 70, "sine", 0.10);
+    setTimeout(() => sfxTone(1046, 90, "sine", 0.12), 75);
+  }
+
+  // ブー（不正解）
+  function sfxWrong() {
+    sfxTone(160, 140, "sawtooth", 0.14);
+    setTimeout(() => sfxTone(120, 160, "sawtooth", 0.14), 90);
+  }
+
+  // 最初の操作で音を解禁（自動再生規制対策）
+  window.addEventListener("pointerdown", sfxUnlock, { once: true });
+
+  // ===== state =====
+  let a = 1, b = 1, ans = 1;
   let cur = 1, ok = 0, ng = 0;
+  let locked = false; // 連打防止（900ms待ちの間）
 
   function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -62,6 +122,7 @@
   }
 
   function newQuestion() {
+    locked = false;
     elMsg.textContent = "";
     a = randInt(1, 9);
     b = randInt(1, 9);
@@ -73,7 +134,6 @@
     // 4択を作る（正解 + まちがい3つ）
     const set = new Set([ans]);
     while (set.size < 4) {
-      // 近い値を混ぜると“それっぽい”選択肢になる
       const delta = randInt(-10, 10);
       const v = Math.max(1, ans + delta);
       set.add(v);
@@ -84,20 +144,35 @@
     for (const c of choices) {
       const btn = document.createElement("button");
       btn.textContent = c;
+
+      // ✅ メニュ/ボタン音（押した瞬間）
+      btn.addEventListener("pointerdown", () => {
+        sfxUnlock();
+        sfxClick();
+      });
+
       btn.onclick = () => pick(c);
       elChoices.appendChild(btn);
     }
   }
 
   function pick(x) {
+    if (locked) return;
+    locked = true;
+
+    sfxUnlock(); // 念のため
     if (x === ans) {
       ok++;
       elOk.textContent = ok;
       elMsg.textContent = "⭕ せいかい！";
+      sfxCorrect();
+      if (navigator.vibrate) navigator.vibrate(30);
     } else {
       ng++;
       elNg.textContent = ng;
       elMsg.textContent = `❌ ちがうで！ こたえは ${ans}`;
+      sfxWrong();
+      if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
     }
 
     // 次へ（少し待ってから）
@@ -112,12 +187,26 @@
   }
 
   function end() {
+    locked = false;
     elChoices.innerHTML = "";
     elQ.textContent = "おしまい！";
     elMsg.textContent = `スコア：正解 ${ok} / 10`;
+
     const btn = document.createElement("button");
     btn.textContent = "もう1回やる";
-    btn.onclick = () => { cur=1; ok=0; ng=0; elOk.textContent=0; elNg.textContent=0; newQuestion(); };
+
+    btn.addEventListener("pointerdown", () => {
+      sfxUnlock();
+      sfxClick();
+    });
+
+    btn.onclick = () => {
+      cur = 1; ok = 0; ng = 0;
+      elOk.textContent = 0;
+      elNg.textContent = 0;
+      newQuestion();
+    };
+
     elChoices.appendChild(btn);
   }
 
